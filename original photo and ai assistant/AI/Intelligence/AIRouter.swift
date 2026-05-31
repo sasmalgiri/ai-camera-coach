@@ -8,26 +8,27 @@
 //  Decision policy:
 //    1. If forensicMode → cloud engines are NEVER tried.
 //    2. Otherwise, try engines in order:
-//         a. FoundationModelEngine (Apple Intelligence, on-device)
-//         b. User's preferred cloud provider (if cloudCallsAllowed)
-//         c. NaturalLanguageEngine (always-on templated fallback)
+//         a. MoEEngine (parallel Apple experts + parallel Apple brain)
+//             ── only when a JPEG of the live frame is available
+//         b. FoundationModelEngine (Apple Intelligence, text-only)
+//         c. User's preferred cloud provider (if cloudCallsAllowed)
+//         d. NaturalLanguageEngine (always-on templated fallback)
 //
 
 import Foundation
 
 actor AIRouter {
 
+    private let moe: MoEEngine
     private let foundation: FoundationModelEngine
     private let fallback: NaturalLanguageEngine
     private let openAI: OpenAICloudEngine
     private let anthropic: AnthropicCloudEngine
     private let settings: AISettingsSnapshot
 
-    /// `AISettingsSnapshot` is an immutable view of `AISettingsStore` that
-    /// we capture each time we build a router. We rebuild the router on
-    /// settings changes — simpler than threading bindings through actors.
     init(settings: AISettingsSnapshot) {
         self.settings = settings
+        self.moe = MoEEngine()
         self.foundation = FoundationModelEngine()
         self.fallback = NaturalLanguageEngine()
 
@@ -47,29 +48,38 @@ actor AIRouter {
 
     // MARK: - Public surface
 
-    func coachingAdvice(scene: SceneSummary) async -> AIResponse {
-        await runChain { engine in
-            try await engine.coachingAdvice(scene: scene)
+    func coachingAdvice(scene: SceneSummary, imageJPEG: Data?) async -> AIResponse {
+        await runChain(imageJPEG: imageJPEG) { engine, image in
+            if let image {
+                return try await engine.coachingAdvice(scene: scene, imageJPEG: image)
+            } else {
+                return try await engine.coachingAdvice(scene: scene)
+            }
         }
     }
 
-    func scoreExplanation(score: PhotoScore, scene: SceneSummary) async -> AIResponse {
-        await runChain { engine in
-            try await engine.scoreExplanation(score: score, scene: scene)
+    func scoreExplanation(score: PhotoScore,
+                          scene: SceneSummary,
+                          imageJPEG: Data?) async -> AIResponse {
+        await runChain(imageJPEG: imageJPEG) { engine, image in
+            if let image {
+                return try await engine.scoreExplanation(score: score,
+                                                         scene: scene,
+                                                         imageJPEG: image)
+            } else {
+                return try await engine.scoreExplanation(score: score, scene: scene)
+            }
         }
     }
 
     func photoCaption(imageJPEG: Data, mode: CaptureMode) async -> AIResponse {
-        // Captioning needs vision — only cloud engines support it today.
-        // If forensic mode or cloud disabled, we degrade gracefully.
         if !settings.cloudCallsAllowed {
             return AIResponse(
                 text: "A \(mode.title) photo from your camera.",
                 provenance: .naturalLanguageFallback
             )
         }
-        let engines = orderedCloudEngines(requiring: .photoCaption)
-        for engine in engines {
+        for engine in orderedCloudEngines(requiring: .photoCaption) {
             guard await engine.isAvailable() else { continue }
             do {
                 return try await engine.photoCaption(imageJPEG: imageJPEG, mode: mode)
@@ -87,17 +97,18 @@ actor AIRouter {
 
     // MARK: - Chain
 
-    private func runChain(_ work: @Sendable (AIEngine) async throws -> AIResponse) async -> AIResponse {
-        for engine in await orderedEngines() {
+    private func runChain(
+        imageJPEG: Data?,
+        _ work: @Sendable (AIEngine, Data?) async throws -> AIResponse
+    ) async -> AIResponse {
+        for engine in await orderedEngines(hasImage: imageJPEG != nil) {
             guard await engine.isAvailable() else { continue }
             do {
                 try Task.checkCancellation()
-                return try await work(engine)
+                return try await work(engine, imageJPEG)
             } catch is CancellationError {
                 break
             } catch let error as AIError where !error.isRecoverable {
-                // Hard failure (safety refusal, etc.) — don't try other
-                // engines. Return a friendly message tagged on-device.
                 return AIResponse(
                     text: error.errorDescription ?? "The AI couldn't help with that.",
                     provenance: .naturalLanguageFallback
@@ -106,20 +117,20 @@ actor AIRouter {
                 continue
             }
         }
-        // Final safety net — should be unreachable because fallback is
-        // always available.
         return AIResponse(text: "Tap the shutter when the moment feels right.",
                           provenance: .naturalLanguageFallback)
     }
 
-    /// Build the ordered engine list honouring forensic mode.
-    private func orderedEngines() async -> [AIEngine] {
+    private func orderedEngines(hasImage: Bool) async -> [AIEngine] {
         var list: [AIEngine] = []
 
-        // 1) On-device LLM first.
+        // 1) MoE only useful if we have a frame to feed the experts.
+        if hasImage { list.append(moe) }
+
+        // 2) Plain Apple Intelligence (text-only).
         list.append(foundation)
 
-        // 2) Cloud engines only if allowed.
+        // 3) Cloud engines only if allowed.
         if settings.cloudCallsAllowed {
             switch settings.preferredProvider {
             case .openAI:
@@ -131,7 +142,7 @@ actor AIRouter {
             }
         }
 
-        // 3) Templated fallback last — guaranteed to return something.
+        // 4) Templated fallback last — guaranteed to return something.
         list.append(fallback)
         return list
     }
@@ -151,9 +162,6 @@ actor AIRouter {
 
 // MARK: - Snapshot type
 
-/// Immutable snapshot of settings used by the router. Settings store is
-/// MainActor but routers are actor-isolated — we cross that boundary
-/// with a Sendable copy.
 nonisolated struct AISettingsSnapshot: Sendable {
     let cloudAIEnabled: Bool
     let forensicMode: Bool

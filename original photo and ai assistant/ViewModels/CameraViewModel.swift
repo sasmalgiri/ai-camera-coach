@@ -50,6 +50,14 @@ final class CameraViewModel: CameraServiceDelegate {
     @ObservationIgnored private let analysisInterval: TimeInterval = 0.7
     @ObservationIgnored private var currentAnalysis = SceneAnalysis()
 
+    /// JPEG snapshot of the most recent video frame, refreshed every
+    /// ~2 s so the MoE experts have something fresh to analyse without
+    /// us re-encoding on every frame.
+    @ObservationIgnored private var latestSnapshotJPEG: Data?
+    @ObservationIgnored private var lastSnapshotAt: Date = .distantPast
+    @ObservationIgnored private let snapshotInterval: TimeInterval = 2.0
+    @ObservationIgnored private let snapshotContext = CIContext()
+
     init(library: PhotoLibraryStore, coach: AICoachService) {
         self.library = library
         self.coach = coach
@@ -103,16 +111,19 @@ final class CameraViewModel: CameraServiceDelegate {
     }
 
     /// Ask the AI Expert to produce a coaching insight for the live scene.
+    /// Passes the most recent frame snapshot so the MoE experts can run.
     func askAIExpert() {
         let summary = SceneSummary.make(from: currentAnalysis, mode: mode, score: photoScore)
-        coach.askForCoaching(scene: summary)
+        coach.askForCoaching(scene: summary, imageJPEG: latestSnapshotJPEG)
         showAIInsight = true
     }
 
     /// Ask the AI Expert to explain the current score.
     func askAIExplainScore() {
         let summary = SceneSummary.make(from: currentAnalysis, mode: mode, score: photoScore)
-        coach.askForScoreExplanation(score: photoScore, scene: summary)
+        coach.askForScoreExplanation(score: photoScore,
+                                     scene: summary,
+                                     imageJPEG: latestSnapshotJPEG)
         showAIInsight = true
     }
 
@@ -147,10 +158,25 @@ final class CameraViewModel: CameraServiceDelegate {
         currentAnalysis = result
         photoScore = nextScore
         suggestions = nextTips
+
+        // Snapshot the frame periodically for the MoE experts. JPEG
+        // encoding is expensive, so we throttle to every ~2 seconds.
+        if now.timeIntervalSince(lastSnapshotAt) >= snapshotInterval {
+            lastSnapshotAt = now
+            latestSnapshotJPEG = encodeJPEG(from: frame)
+        }
+
         if photographer.shouldCapture(score: nextScore, analysis: result, mode: mode) {
             cameraService.capturePhoto(flash: captureFlash)
         }
         analysisInFlight = false
+    }
+
+    private func encodeJPEG(from ciImage: CIImage) -> Data? {
+        guard let cg = snapshotContext.createCGImage(ciImage, from: ciImage.extent) else {
+            return nil
+        }
+        return UIImage(cgImage: cg).jpegData(compressionQuality: 0.7)
     }
 
     private func handleCapture(_ image: UIImage) {
