@@ -16,7 +16,15 @@ final class CameraViewModel: CameraServiceDelegate {
     // MARK: - UI state
 
     var mode: CaptureMode = .smart {
-        didSet { if oldValue != mode { Haptics.selection() } }
+        didSet {
+            if oldValue != mode {
+                Haptics.selection()
+                // A manual mode change clears any active suggestion and
+                // its dismissal timer so we don't keep nagging.
+                suggestedMode = nil
+                modeSuggestionDismissedAt = Date()
+            }
+        }
     }
     var isAuthorized = false
     var isRunning = false
@@ -94,6 +102,8 @@ final class CameraViewModel: CameraServiceDelegate {
 
     @ObservationIgnored private var lowScoreStartedAt: Date?
     @ObservationIgnored private var thermalObserver: NSObjectProtocol?
+    @ObservationIgnored private var modeSuggestionDismissedAt: Date?
+    @ObservationIgnored private let modeSuggestionCooldown: TimeInterval = 20
 
     init(library: PhotoLibraryStore, coach: AICoachService) {
         self.library = library
@@ -247,7 +257,10 @@ final class CameraViewModel: CameraServiceDelegate {
         }
     }
 
-    func dismissModeSuggestion() { suggestedMode = nil }
+    func dismissModeSuggestion() {
+        suggestedMode = nil
+        modeSuggestionDismissedAt = Date()
+    }
 
     // MARK: - CameraServiceDelegate
 
@@ -363,8 +376,13 @@ final class CameraViewModel: CameraServiceDelegate {
     // MARK: - Mode auto-detect
 
     private func updateModeSuggestion(from analysis: SceneAnalysis) {
-        // Only suggest if the user hasn't manually overridden recently.
         guard suggestedMode == nil else { return }
+        // Cool down after the user dismissed a suggestion so the banner
+        // doesn't immediately come back on the next frame.
+        if let dismissed = modeSuggestionDismissedAt,
+           Date().timeIntervalSince(dismissed) < modeSuggestionCooldown {
+            return
+        }
         let suggestion: CaptureMode? = {
             if analysis.faceCount >= 3 { return .family }
             if analysis.faceCount == 0 && mode != .travel { return .travel }

@@ -70,6 +70,18 @@ struct CameraScreen: View {
                             .transition(reduceMotion ? .opacity
                                         : .opacity.combined(with: .move(edge: .bottom)))
                     }
+                    if viewModel.aiPhotographerEnabled,
+                       !viewModel.photographerReason.isEmpty,
+                       viewModel.captureFeedback == nil {
+                        Text(viewModel.photographerReason)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(.black.opacity(0.4), in: Capsule())
+                            .padding(.bottom, 6)
+                            .accessibilityLabel("AI Photographer status: \(viewModel.photographerReason)")
+                    }
                     if let feedback = viewModel.captureFeedback {
                         captureFeedbackBubble(feedback)
                             .padding(.bottom, 8)
