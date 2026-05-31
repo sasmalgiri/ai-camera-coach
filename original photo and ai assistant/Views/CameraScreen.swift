@@ -13,10 +13,12 @@ struct CameraScreen: View {
     let switchToGallery: () -> Void
 
     @State private var levelService = DeviceLevelService()
+    @State private var volumeShutter = VolumeButtonShutter()
     @State private var showModeSheet = false
     @State private var showSettings = false
     @State private var showHelp = false
     @State private var pinchBaseline: CGFloat = 1.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -50,7 +52,8 @@ struct CameraScreen: View {
                         modeSuggestionBanner(suggested)
                             .padding(.horizontal)
                             .padding(.top, 8)
-                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .transition(reduceMotion ? .opacity
+                                        : .move(edge: .top).combined(with: .opacity))
                     }
                     Spacer()
                     if viewModel.showCoach && viewModel.isAuthorized {
@@ -58,12 +61,14 @@ struct CameraScreen: View {
                                    suggestions: viewModel.suggestions)
                             .padding(.horizontal)
                             .padding(.bottom, 8)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            .transition(reduceMotion ? .opacity
+                                        : .opacity.combined(with: .move(edge: .bottom)))
                     } else if viewModel.showProactiveTip {
                         proactiveTipBubble(viewModel.proactiveTipText)
                             .padding(.horizontal)
                             .padding(.bottom, 8)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            .transition(reduceMotion ? .opacity
+                                        : .opacity.combined(with: .move(edge: .bottom)))
                     }
                     if let feedback = viewModel.captureFeedback {
                         captureFeedbackBubble(feedback)
@@ -83,10 +88,12 @@ struct CameraScreen: View {
         .task {
             await viewModel.bootstrap()
             levelService.start()
+            volumeShutter.start { viewModel.capture() }
         }
         .onDisappear {
             viewModel.stop()
             levelService.stop()
+            volumeShutter.stop()
         }
         .onAppear { viewModel.resume() }
         .sheet(isPresented: $showModeSheet) {

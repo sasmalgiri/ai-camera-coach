@@ -48,27 +48,38 @@ actor AIRouter {
 
     // MARK: - Public surface
 
-    func coachingAdvice(scene: SceneSummary, imageJPEG: Data?) async -> AIResponse {
-        await runChain(imageJPEG: imageJPEG) { engine, image in
+    func coachingAdvice(scene: SceneSummary,
+                        imageJPEG: Data?,
+                        onPartial: (@Sendable (String) async -> Void)? = nil) async -> AIResponse {
+        await runChain(imageJPEG: imageJPEG, onPartial: onPartial) { engine, image, partial in
+            if let moe = engine as? MoEEngine, let image {
+                await moe.setOnPartial(partial)
+                return try await moe.coachingAdvice(scene: scene, imageJPEG: image)
+            }
             if let image {
                 return try await engine.coachingAdvice(scene: scene, imageJPEG: image)
-            } else {
-                return try await engine.coachingAdvice(scene: scene)
             }
+            return try await engine.coachingAdvice(scene: scene)
         }
     }
 
     func scoreExplanation(score: PhotoScore,
                           scene: SceneSummary,
-                          imageJPEG: Data?) async -> AIResponse {
-        await runChain(imageJPEG: imageJPEG) { engine, image in
+                          imageJPEG: Data?,
+                          onPartial: (@Sendable (String) async -> Void)? = nil) async -> AIResponse {
+        await runChain(imageJPEG: imageJPEG, onPartial: onPartial) { engine, image, partial in
+            if let moe = engine as? MoEEngine, let image {
+                await moe.setOnPartial(partial)
+                return try await moe.scoreExplanation(score: score,
+                                                      scene: scene,
+                                                      imageJPEG: image)
+            }
             if let image {
                 return try await engine.scoreExplanation(score: score,
                                                          scene: scene,
                                                          imageJPEG: image)
-            } else {
-                return try await engine.scoreExplanation(score: score, scene: scene)
             }
+            return try await engine.scoreExplanation(score: score, scene: scene)
         }
     }
 
@@ -99,13 +110,14 @@ actor AIRouter {
 
     private func runChain(
         imageJPEG: Data?,
-        _ work: @Sendable (AIEngine, Data?) async throws -> AIResponse
+        onPartial: (@Sendable (String) async -> Void)?,
+        _ work: @Sendable (AIEngine, Data?, (@Sendable (String) async -> Void)?) async throws -> AIResponse
     ) async -> AIResponse {
         for engine in await orderedEngines(hasImage: imageJPEG != nil) {
             guard await engine.isAvailable() else { continue }
             do {
                 try Task.checkCancellation()
-                return try await work(engine, imageJPEG)
+                return try await work(engine, imageJPEG, onPartial)
             } catch is CancellationError {
                 break
             } catch let error as AIError where !error.isRecoverable {

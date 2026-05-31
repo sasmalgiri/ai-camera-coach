@@ -2,19 +2,6 @@
 //  ParallelAppleBrain.swift
 //  AI Camera Coach — MoE layer
 //
-//  Apple Intelligence as the synthesizer. Runs THREE LanguageModelSessions
-//  in parallel (the "map" step), each digesting a slice of expert findings
-//  (people, environment, technical). A fourth session ("reduce") combines
-//  their summaries into the final tip.
-//
-//  Why parallel: each session has its own ~4K-token context window.
-//  Splitting the prompt across sessions gives you effective context
-//  expansion without exceeding any single window. Apple recommends this
-//  pattern in their docs.
-//
-//  Concurrency capped at 3 to avoid LanguageModelSession.GenerationError
-//  .rateLimited.
-//
 
 import Foundation
 
@@ -32,7 +19,15 @@ actor ParallelAppleBrain {
     Maximum three short imperative sentences. Be encouraging.
     """
 
-    /// True iff Apple Intelligence is ready right now.
+    /// Optional callback used to deliver streaming partial tokens to the
+    /// UI. Set before calling `synthesize`. Ignored by the non-streaming
+    /// map step (we only stream the final reduce).
+    var onPartial: (@Sendable (String) async -> Void)?
+
+    func setOnPartial(_ handler: (@Sendable (String) async -> Void)?) {
+        self.onPartial = handler
+    }
+
     func isAvailable() async -> Bool {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, macOS 26.0, *) {
@@ -42,8 +37,17 @@ actor ParallelAppleBrain {
         return false
     }
 
-    /// Map-reduce synthesis. If anything fails, returns nil so callers
-    /// can fall back to their templated path.
+    /// Prewarm the on-device model so the first AI Expert tap is snappy.
+    func prewarm() async {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, macOS 26.0, *) {
+            guard SystemLanguageModel.default.availability == .available else { return }
+            let session = LanguageModelSession(instructions: synthInstructions)
+            session.prewarm()
+        }
+        #endif
+    }
+
     func synthesize(findings: ExpertFindings,
                     scene: SceneSummary) async -> String? {
         #if canImport(FoundationModels)
@@ -60,14 +64,12 @@ actor ParallelAppleBrain {
     private func runMapReduce(findings: ExpertFindings,
                               scene: SceneSummary) async -> String? {
 
-        // Three parallel "specialist" prompts — each focused on a slice.
+        // Map — three parallel slices.
         async let peopleSummary = run(prompt: peoplePrompt(findings, scene))
         async let envSummary    = run(prompt: environmentPrompt(findings, scene))
         async let techSummary   = run(prompt: technicalPrompt(findings, scene))
 
         let (people, env, tech) = await (peopleSummary, envSummary, techSummary)
-
-        // If all three map sessions failed, abort.
         if people == nil, env == nil, tech == nil { return nil }
 
         let reducePrompt = """
@@ -81,7 +83,9 @@ actor ParallelAppleBrain {
         Environment summary: \(env ?? "n/a")
         Technical summary: \(tech ?? "n/a")
         """
-        return await run(prompt: reducePrompt)
+
+        // Reduce — stream the final answer.
+        return await runStreaming(prompt: reducePrompt)
     }
 
     @available(iOS 26.0, macOS 26.0, *)
@@ -92,8 +96,27 @@ actor ParallelAppleBrain {
             let text = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
             return text.isEmpty ? nil : text
         } catch {
-            // Includes rate-limit and guardrail errors — caller falls back.
             return nil
+        }
+    }
+
+    /// Streams partial tokens to `onPartial` while accumulating the full
+    /// final string.
+    @available(iOS 26.0, macOS 26.0, *)
+    private func runStreaming(prompt: String) async -> String? {
+        let session = LanguageModelSession(instructions: synthInstructions)
+        var accumulated = ""
+        do {
+            let stream = session.streamResponse(to: prompt)
+            for try await partial in stream {
+                accumulated = partial.content
+                if let onPartial { await onPartial(accumulated) }
+            }
+            let text = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
+            return text.isEmpty ? nil : text
+        } catch {
+            // Fall back to non-streaming if streaming hits a guardrail/error.
+            return await run(prompt: prompt)
         }
     }
 

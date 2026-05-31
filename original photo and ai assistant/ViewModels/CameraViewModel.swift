@@ -63,6 +63,10 @@ final class CameraViewModel: CameraServiceDelegate {
     /// Reduced operation mode when device gets hot.
     private(set) var isThermallyThrottled = false
 
+    /// Most recent reason from the AI Photographer (visible in the AI
+    /// Expert sheet when the auto-photographer is on).
+    var photographerReason: String { photographer.lastDecisionReason }
+
     // MARK: - References
 
     @ObservationIgnored let session: AVCaptureSession
@@ -375,19 +379,23 @@ final class CameraViewModel: CameraServiceDelegate {
 
     private func handleThermalChange() {
         let state = ProcessInfo.processInfo.thermalState
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        let batteryLevel = UIDevice.current.batteryLevel  // -1 if unknown
+        let lowBattery = batteryLevel >= 0 && batteryLevel < 0.20
+
         switch state {
         case .nominal, .fair:
             isThermallyThrottled = false
-            analysisInterval = 0.7
+            analysisInterval = lowBattery ? 1.4 : 0.7
         case .serious:
             isThermallyThrottled = true
-            analysisInterval = 1.4
+            analysisInterval = lowBattery ? 2.0 : 1.4
         case .critical:
             isThermallyThrottled = true
-            analysisInterval = 2.5
+            analysisInterval = lowBattery ? 3.5 : 2.5
         @unknown default:
             isThermallyThrottled = false
-            analysisInterval = 0.7
+            analysisInterval = lowBattery ? 1.4 : 0.7
         }
     }
 

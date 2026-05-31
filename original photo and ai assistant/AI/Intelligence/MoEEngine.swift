@@ -21,6 +21,11 @@ actor MoEEngine: AIEngine {
     private let orchestrator = ExpertOrchestrator()
     private let brain = ParallelAppleBrain()
 
+    /// Forwarded to the brain so streaming partials reach the UI.
+    func setOnPartial(_ handler: (@Sendable (String) async -> Void)?) async {
+        await brain.setOnPartial(handler)
+    }
+
     func isAvailable() async -> Bool {
         await brain.isAvailable()
     }
