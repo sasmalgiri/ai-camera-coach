@@ -31,6 +31,8 @@ final class AIPhotographer {
         var confidence = Double(score.total) / 100.0
 
         switch mode {
+        case .original:
+            break // no mode-specific gating in raw mode
         case .family:
             let allOpen = analysis.faces.allSatisfy { $0.eyesOpenConfidence > 0.55 }
             confidence *= (analysis.faceCount > 0 && allOpen) ? 1.0 : 0.55

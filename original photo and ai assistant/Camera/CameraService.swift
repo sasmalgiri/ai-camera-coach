@@ -59,9 +59,14 @@ nonisolated final class CameraService: NSObject, @unchecked Sendable {
         session.beginConfiguration()
         session.sessionPreset = .photo
 
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera,
-                                                   for: .video,
-                                                   position: .back),
+        // Prefer the back wide-angle camera (real device). Fall back to
+        // any available video camera so the iOS Simulator (which only
+        // exposes the Mac's webcam, position .unspecified) still works.
+        let device: AVCaptureDevice? =
+            AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+            ?? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front)
+            ?? AVCaptureDevice.default(for: .video)
+        guard let device,
               let newInput = try? AVCaptureDeviceInput(device: device),
               session.canAddInput(newInput) else {
             session.commitConfiguration()

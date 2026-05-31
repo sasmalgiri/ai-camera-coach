@@ -28,6 +28,10 @@ final class AutoCorrector: Sendable {
     }
 
     func apply(to image: UIImage, mode: CaptureMode) -> UIImage {
+        // Original mode is contractually no-op: return the raw image
+        // unchanged so the user sees exactly what the sensor produced.
+        if mode.bypassesAutoCorrection { return image }
+
         guard let cg = image.cgImage else { return image }
         var ci = CIImage(cgImage: cg)
 
@@ -39,6 +43,8 @@ final class AutoCorrector: Sendable {
         }
 
         switch mode {
+        case .original:
+            break // unreachable — handled above
         case .smart, .family, .child:
             ci = adjust(ci, saturation: 1.05, contrast: 1.04, brightness: 0.0)
         case .pet:

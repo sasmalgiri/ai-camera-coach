@@ -46,11 +46,12 @@ final class PhotoScorer: Sendable {
 
     private func weights(for mode: CaptureMode) -> [String: Double] {
         switch mode {
-        case .smart:  return ["Exposure": 1.0, "Sharpness": 1.0, "Composition": 1.0, "Faces": 0.8]
-        case .family: return ["Exposure": 1.0, "Sharpness": 1.2, "Composition": 0.7, "Faces": 2.0]
-        case .child:  return ["Exposure": 0.7, "Sharpness": 1.5, "Composition": 0.7, "Faces": 1.5]
-        case .pet:    return ["Exposure": 0.8, "Sharpness": 1.5, "Composition": 0.8, "Faces": 1.2]
-        case .travel: return ["Exposure": 1.2, "Sharpness": 1.0, "Composition": 1.5, "Faces": 0.4]
+        case .original: return ["Exposure": 1.0, "Sharpness": 1.0, "Composition": 1.0, "Faces": 0.8]
+        case .smart:    return ["Exposure": 1.0, "Sharpness": 1.0, "Composition": 1.0, "Faces": 0.8]
+        case .family:   return ["Exposure": 1.0, "Sharpness": 1.2, "Composition": 0.7, "Faces": 2.0]
+        case .child:    return ["Exposure": 0.7, "Sharpness": 1.5, "Composition": 0.7, "Faces": 1.5]
+        case .pet:      return ["Exposure": 0.8, "Sharpness": 1.5, "Composition": 0.8, "Faces": 1.2]
+        case .travel:   return ["Exposure": 1.2, "Sharpness": 1.0, "Composition": 1.5, "Faces": 0.4]
         }
     }
 }

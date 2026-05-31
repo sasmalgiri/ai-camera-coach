@@ -46,6 +46,8 @@ final class CoachAdvisor: Sendable {
         }
 
         switch mode {
+        case .original:
+            break // raw mode adds no mode-specific tips
         case .family:
             if analysis.faceCount > 1 {
                 let openCount = analysis.faces.filter { $0.eyesOpenConfidence > 0.55 }.count

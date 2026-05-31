@@ -154,7 +154,12 @@ final class CameraViewModel: CameraServiceDelegate {
     }
 
     private func handleCapture(_ image: UIImage) {
-        let processed = autoCorrectionEnabled ? corrector.apply(to: image, mode: mode) : image
+        // Original mode always saves the raw frame — the auto-correction
+        // toggle is ignored. For every other mode, honour the toggle.
+        let processed: UIImage = {
+            if mode.bypassesAutoCorrection { return image }
+            return autoCorrectionEnabled ? corrector.apply(to: image, mode: mode) : image
+        }()
         let savedScore = photoScore.total
         if let entry = library.save(original: image,
                                     processed: processed,
