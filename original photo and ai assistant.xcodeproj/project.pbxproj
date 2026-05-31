@@ -256,6 +256,8 @@
 				DEVELOPMENT_TEAM = 6TPTCJD42Q;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "AI Camera Coach uses the camera to capture photos and guide you toward great shots.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "AI Camera Coach saves your photos to your library so you can keep them.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -288,6 +290,8 @@
 				DEVELOPMENT_TEAM = 6TPTCJD42Q;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "AI Camera Coach uses the camera to capture photos and guide you toward great shots.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "AI Camera Coach saves your photos to your library so you can keep them.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

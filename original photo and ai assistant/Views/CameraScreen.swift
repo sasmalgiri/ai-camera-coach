@@ -8,6 +8,7 @@ import UIKit
 
 struct CameraScreen: View {
     @Bindable var viewModel: CameraViewModel
+    @Bindable var aiSettings: AISettingsStore
     let switchToGallery: () -> Void
     @State private var showModeSheet = false
     @State private var showSettings = false
@@ -50,8 +51,13 @@ struct CameraScreen: View {
         }
         .sheet(isPresented: $showSettings) {
             SettingsScreen(autoCorrection: $viewModel.autoCorrectionEnabled,
-                           flash: $viewModel.captureFlash)
-                .presentationDetents([.medium])
+                           flash: $viewModel.captureFlash,
+                           aiSettings: aiSettings)
+                .presentationDetents([.large])
+        }
+        .sheet(isPresented: $viewModel.showAIInsight) {
+            AICoachInsightSheet(service: viewModel.coach,
+                                onClose: { viewModel.showAIInsight = false })
         }
     }
 
@@ -168,6 +174,17 @@ struct CameraScreen: View {
 
     private var aiButtonStack: some View {
         VStack(spacing: 8) {
+            Button {
+                viewModel.askAIExpert()
+            } label: {
+                Image(systemName: "sparkles")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.yellow)
+                    .frame(width: 54, height: 38)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            .accessibilityLabel("Ask AI Expert")
+
             Button {
                 viewModel.toggleAIPhotographer()
             } label: {

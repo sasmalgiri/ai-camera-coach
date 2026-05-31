@@ -27,10 +27,14 @@ final class CameraViewModel: CameraServiceDelegate {
     var captureFeedback: String?
     var lastCaptured: PhotoEntry?
 
+    /// AI Expert sheet visibility (and the service it observes).
+    var showAIInsight = false
+
     // MARK: - References
 
     @ObservationIgnored let session: AVCaptureSession
     @ObservationIgnored let library: PhotoLibraryStore
+    @ObservationIgnored let coach: AICoachService
 
     // MARK: - Internals
 
@@ -46,8 +50,9 @@ final class CameraViewModel: CameraServiceDelegate {
     @ObservationIgnored private let analysisInterval: TimeInterval = 0.7
     @ObservationIgnored private var currentAnalysis = SceneAnalysis()
 
-    init(library: PhotoLibraryStore) {
+    init(library: PhotoLibraryStore, coach: AICoachService) {
         self.library = library
+        self.coach = coach
         self.session = cameraService.session
         self.cameraService.delegate = self
     }
@@ -95,6 +100,20 @@ final class CameraViewModel: CameraServiceDelegate {
 
     func toggleCoach() {
         withAnimation { showCoach.toggle() }
+    }
+
+    /// Ask the AI Expert to produce a coaching insight for the live scene.
+    func askAIExpert() {
+        let summary = SceneSummary.make(from: currentAnalysis, mode: mode, score: photoScore)
+        coach.askForCoaching(scene: summary)
+        showAIInsight = true
+    }
+
+    /// Ask the AI Expert to explain the current score.
+    func askAIExplainScore() {
+        let summary = SceneSummary.make(from: currentAnalysis, mode: mode, score: photoScore)
+        coach.askForScoreExplanation(score: photoScore, scene: summary)
+        showAIInsight = true
     }
 
     // MARK: - CameraServiceDelegate

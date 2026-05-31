@@ -9,6 +9,7 @@ import SwiftUI
 struct SettingsScreen: View {
     @Binding var autoCorrection: Bool
     @Binding var flash: AVCaptureDevice.FlashMode
+    @Bindable var aiSettings: AISettingsStore
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -22,13 +23,25 @@ struct SettingsScreen: View {
                         Text("Off").tag(AVCaptureDevice.FlashMode.off)
                     }
                 }
+
+                Section("AI Expert") {
+                    NavigationLink {
+                        AISettingsView(settings: aiSettings)
+                    } label: {
+                        Label("Configure AI Expert", systemImage: "sparkles")
+                    }
+                    Text(aiStatusLine)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("About") {
                     LabeledContent("App", value: "AI Camera Coach")
                     LabeledContent("Version", value: "1.0")
                     LabeledContent("Price", value: "$4.99 · One-time")
                 }
                 Section("Privacy") {
-                    Text("All processing happens on your device. No account, no ads, no tracking.")
+                    Text("All scene analysis runs on your device. Cloud AI is opt-in and uses your own API key. No accounts. No ads. No tracking.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -41,5 +54,15 @@ struct SettingsScreen: View {
                 }
             }
         }
+    }
+
+    private var aiStatusLine: String {
+        if aiSettings.forensicMode {
+            return "Forensic Mode is on — only on-device AI will be used."
+        }
+        if aiSettings.cloudAIEnabled {
+            return "Cloud AI enabled (\(aiSettings.preferredProvider.displayName)) using your own key."
+        }
+        return "On-device AI only. Cloud AI is off."
     }
 }

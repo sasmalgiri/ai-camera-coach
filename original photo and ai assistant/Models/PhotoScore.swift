@@ -5,7 +5,7 @@
 
 import Foundation
 
-struct PhotoScore: Equatable {
+nonisolated struct PhotoScore: Equatable, Sendable {
     let total: Int                  // 0..100
     let breakdown: [String: Int]
 

@@ -5,7 +5,7 @@
 
 import Foundation
 
-enum CaptureMode: String, CaseIterable, Identifiable, Hashable, Codable {
+nonisolated enum CaptureMode: String, CaseIterable, Identifiable, Hashable, Codable {
     case smart
     case family
     case child

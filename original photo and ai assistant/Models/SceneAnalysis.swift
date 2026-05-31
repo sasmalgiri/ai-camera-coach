@@ -6,7 +6,7 @@
 import CoreGraphics
 import Foundation
 
-struct SceneAnalysis: Equatable {
+nonisolated struct SceneAnalysis: Equatable, Sendable {
     var faceCount: Int = 0
     var faces: [FaceObservation] = []
     var brightness: Double = 0.5       // 0 = dark, 1 = bright
@@ -15,7 +15,7 @@ struct SceneAnalysis: Equatable {
     var subjectCentered: Double = 0.5  // 0 = poorly placed, 1 = well placed
     var motionLevel: Double = 0        // 0 = still, 1 = motion
 
-    struct FaceObservation: Equatable {
+    nonisolated struct FaceObservation: Equatable, Sendable {
         let boundingBox: CGRect        // Vision-normalized 0..1
         let eyesOpenConfidence: Double
         let smileConfidence: Double

@@ -5,7 +5,7 @@
 
 import Foundation
 
-struct PhotoEntry: Identifiable, Hashable, Codable {
+nonisolated struct PhotoEntry: Identifiable, Hashable, Codable, Sendable {
     let id: UUID
     let createdAt: Date
     let modeRaw: String
