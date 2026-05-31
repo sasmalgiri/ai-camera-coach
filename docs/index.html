@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AI Camera Coach — Take pro-looking photos, without learning photography</title>
+<meta name="description" content="An iOS camera app with an AI Coach that tells you what to do and an AI Photographer that decides when to capture. On-device. $4.99 one-time." />
+<meta property="og:title" content="AI Camera Coach" />
+<meta property="og:description" content="An iOS camera app with an AI Coach and an AI Photographer. On-device. $4.99 one-time." />
+<style>
+  :root {
+    --bg: #050608;
+    --bg-2: #0c0f15;
+    --card: #11151c;
+    --line: #1c2230;
+    --text: #f6f7fb;
+    --muted: #97a0b3;
+    --accent: #7c9cff;
+    --accent-2: #b388ff;
+    --good: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Layout */
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* Nav */
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(5,6,8,0.7);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+  nav .row {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; letter-spacing: 0.2px;
+  }
+  .brand .dot {
+    width: 18px; height: 18px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  }
+  nav .links { display: flex; gap: 22px; font-size: 14px; color: var(--muted); }
+  nav .links a:hover { color: var(--text); }
+  .cta {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #0b0d12; font-weight: 600; padding: 9px 16px; border-radius: 999px;
+    font-size: 14px;
+  }
+  .cta:hover { text-decoration: none; filter: brightness(1.08); }
+
+  /* Hero */
+  header.hero {
+    position: relative;
+    padding: 96px 0 80px;
+    overflow: hidden;
+  }
+  header.hero::before {
+    content: "";
+    position: absolute; inset: -10% -10% auto -10%; height: 60%;
+    background: radial-gradient(60% 70% at 50% 0%, rgba(124,156,255,0.25), transparent 70%);
+    pointer-events: none;
+  }
+  .eyebrow {
+    display: inline-block; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); background: var(--card); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 12px;
+  }
+  h1 {
+    font-size: clamp(40px, 6.4vw, 76px);
+    line-height: 1.05; letter-spacing: -0.02em;
+    margin: 18px 0 18px;
+  }
+  h1 .grad {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub {
+    max-width: 620px; color: var(--muted); font-size: 19px;
+  }
+  .actions {
+    display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap;
+  }
+  .btn-secondary {
+    border: 1px solid var(--line); color: var(--text); padding: 11px 18px; border-radius: 999px;
+    font-size: 14px;
+  }
+  .btn-secondary:hover { background: var(--bg-2); text-decoration: none; }
+
+  /* Phone mockup */
+  .hero-grid {
+    display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: center;
+  }
+  @media (max-width: 880px) { .hero-grid { grid-template-columns: 1fr; } }
+  .phone {
+    position: relative; width: 100%; max-width: 320px; margin: 0 auto;
+    aspect-ratio: 9/19.5;
+    background: #0a0c11; border-radius: 44px; border: 1px solid #1f2532;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    overflow: hidden;
+  }
+  .phone .screen {
+    position: absolute; inset: 10px; border-radius: 36px;
+    background: linear-gradient(160deg, #1a2238 0%, #0c1426 50%, #07080f 100%);
+    overflow: hidden;
+  }
+  .phone .chip {
+    position: absolute; top: 22px; left: 22px; padding: 7px 12px; border-radius: 999px;
+    background: rgba(255,255,255,0.06); backdrop-filter: blur(20px);
+    color: #fff; font-size: 12px; display: flex; align-items: center; gap: 6px;
+  }
+  .phone .panel {
+    position: absolute; left: 16px; right: 16px; bottom: 110px;
+    background: rgba(20,22,30,0.65); backdrop-filter: blur(22px);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; padding: 14px;
+  }
+  .phone .panel .row { display: flex; justify-content: space-between; font-size: 12px; color: #d6d9e2; }
+  .phone .panel .row .num { font-weight: 700; font-size: 18px; color: #fff; }
+  .phone .bar { height: 6px; border-radius: 999px; background: rgba(255,255,255,0.07); margin: 10px 0 12px; overflow: hidden; }
+  .phone .bar > span { display: block; height: 100%; width: 84%; background: linear-gradient(90deg, var(--good), #22d3ee); }
+  .phone .tip {
+    display: flex; align-items: center; gap: 8px; color: #fff; font-size: 12px; opacity: 0.92; margin-top: 6px;
+  }
+  .phone .tip .dotIcon { width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.1); display: inline-block; }
+  .phone .shutter {
+    position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%);
+    width: 70px; height: 70px; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.9), 0 0 0 8px rgba(255,255,255,0.18);
+  }
+
+  /* Sections */
+  section { padding: 80px 0; border-top: 1px solid var(--line); }
+  section h2 {
+    font-size: clamp(28px, 3.6vw, 40px);
+    margin: 0 0 12px; letter-spacing: -0.01em;
+  }
+  section .lede { color: var(--muted); max-width: 620px; }
+
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 40px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 40px; }
+  @media (max-width: 800px) { .grid-3, .grid-2 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px;
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .card:hover { transform: translateY(-2px); border-color: #2a3245; }
+  .card h3 { margin: 8px 0 6px; font-size: 18px; }
+  .card p { color: var(--muted); margin: 0; font-size: 14.5px; }
+  .icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,156,255,0.2), rgba(179,136,255,0.2));
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent); font-weight: 700;
+  }
+
+  /* Modes list */
+  .modes { margin-top: 28px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+  @media (max-width: 900px) { .modes { grid-template-columns: repeat(2, 1fr); } }
+  .mode {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px;
+  }
+  .mode .pill {
+    display: inline-block; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px;
+  }
+  .mode h4 { margin: 0 0 4px; font-size: 17px; }
+  .mode p { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+  /* Pricing */
+  .price-card {
+    margin: 40px auto 0; max-width: 460px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 22px; padding: 28px; text-align: center;
+    box-shadow: 0 30px 80px rgba(124,156,255,0.08);
+  }
+  .price-card .big { font-size: 56px; font-weight: 700; letter-spacing: -0.02em; }
+  .price-card .currency { font-size: 24px; vertical-align: super; margin-right: 4px; color: var(--muted); }
+  .price-card .meta { color: var(--muted); margin-bottom: 18px; }
+  .price-card ul { list-style: none; padding: 0; margin: 18px 0 0; text-align: left; }
+  .price-card li { color: #e3e6ee; padding: 7px 0; display: flex; gap: 10px; }
+  .price-card li::before { content: "✓"; color: var(--good); font-weight: 700; }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 36px 0 60px;
+    color: var(--muted); font-size: 13px;
+  }
+  footer .row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap row">
+    <div class="brand">
+      <span class="dot"></span>
+      <span>AI Camera Coach</span>
+    </div>
+    <div class="links">
+      <a href="#features">Features</a>
+      <a href="#modes">Modes</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://github.com/sasmalgiri/ai-camera-coach" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <a class="cta" href="#pricing">Get it · $4.99</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">AI Coach · AI Photographer · On-device</span>
+      <h1>Take pro-looking photos,<br/><span class="grad">without learning photography.</span></h1>
+      <p class="sub">
+        AI Camera Coach watches your scene live, gives you plain-language guidance,
+        and can even decide <em>when</em> to capture for you. No jargon. No subscriptions. No accounts.
+      </p>
+      <div class="actions">
+        <a class="cta" href="#pricing">Get it · $4.99 one-time</a>
+        <a class="btn-secondary" href="https://github.com/sasmalgiri/ai-camera-coach" target="_blank" rel="noopener">View source on GitHub</a>
+      </div>
+    </div>
+
+    <div class="phone" aria-hidden="true">
+      <div class="screen">
+        <div class="chip">✦ Family Mode</div>
+        <div class="panel">
+          <div class="row">
+            <span>Photo Score</span>
+            <span class="num">87</span>
+          </div>
+          <div class="bar"><span></span></div>
+          <div class="tip"><span class="dotIcon"></span>Wait — not everyone's eyes are open</div>
+          <div class="tip"><span class="dotIcon"></span>Move a little closer</div>
+        </div>
+        <div class="shutter"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <h2>What it actually does for you</h2>
+    <p class="lede">Two roles in one app — a coach when you want guidance, a photographer when you don't want to think.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="icon">★</div>
+        <h3>AI Coach</h3>
+        <p>A live 0–100 Photo Score and human-readable tips like <em>"move closer"</em> or <em>"turn toward light."</em> No ISO, no histograms.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⊙</div>
+        <h3>AI Photographer</h3>
+        <p>Tap once and the app captures automatically when confidence is high — eyes open, focus locked, motion settled.</p>
+      </div>
+      <div class="card">
+        <div class="icon">✺</div>
+        <h3>Auto Correction</h3>
+        <p>Exposure, white balance, color and tone are quietly improved on every shot. Natural — not over-processed.</p>
+      </div>
+      <div class="card">
+        <div class="icon">◐</div>
+        <h3>Before / After</h3>
+        <p>Every photo is saved as both <em>original</em> and <em>enhanced</em>. Long-press to compare them in the gallery.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⌘</div>
+        <h3>Five modes</h3>
+        <p>Smart, Family, Child, Pet, Travel — each tunes the scoring and capture rules to that subject.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⊘</div>
+        <h3>On-device only</h3>
+        <p>Vision and Core Image do the work locally. No accounts, no cloud upload, no analytics. Your photos stay yours.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="modes">
+  <div class="wrap">
+    <h2>Five modes, one shutter</h2>
+    <p class="lede">Each mode reshuffles the scoring weights and the auto-capture rules.</p>
+
+    <div class="modes">
+      <div class="mode">
+        <span class="pill">Default</span>
+        <h4>Smart</h4>
+        <p>General-purpose AI capture for everyday photos.</p>
+      </div>
+      <div class="mode">
+        <span class="pill">Group</span>
+        <h4>Family</h4>
+        <p>Waits for most eyes open and most faces visible.</p>
+      </div>
+      <div class="mode">
+        <span class="pill">Action</span>
+        <h4>Child</h4>
+        <p>Tuned for movement and unpredictable expressions.</p>
+      </div>
+      <div class="mode">
+        <span class="pill">Animals</span>
+        <h4>Pet</h4>
+        <p>Looks for animal faces and sharp focus at speed.</p>
+      </div>
+      <div class="mode">
+        <span class="pill">Scenery</span>
+        <h4>Travel</h4>
+        <p>Landmarks, level horizons, and rule-of-thirds framing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <h2>One price. Forever.</h2>
+    <p class="lede">No subscription. No ads. No account. You buy it once, it just keeps working.</p>
+
+    <div class="price-card">
+      <div class="big"><span class="currency">$</span>4.99</div>
+      <div class="meta">One-time purchase · Apple App Store</div>
+      <a class="cta" href="#" style="display:inline-block; margin-top: 4px;">Coming to the App Store</a>
+      <ul>
+        <li>AI Coach &amp; AI Photographer</li>
+        <li>Five modes (Smart, Family, Child, Pet, Travel)</li>
+        <li>Auto-correction with natural results</li>
+        <li>Before/After gallery</li>
+        <li>100% on-device · no tracking</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap row">
+    <div>© 2026 AI Camera Coach.</div>
+    <div>
+      <a href="https://github.com/sasmalgiri/ai-camera-coach" target="_blank" rel="noopener">GitHub</a>
+      &nbsp;·&nbsp;
+      <a href="#features">Features</a>
+      &nbsp;·&nbsp;
+      <a href="#pricing">Pricing</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
