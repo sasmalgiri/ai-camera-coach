@@ -15,6 +15,11 @@ struct RootView: View {
     @State private var camera: CameraViewModel
     @State private var screen: Screen = .camera
 
+    /// Persists across launches — flips to true once the user finishes
+    /// or skips the onboarding flow.
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding: Bool = false
+    @State private var showOnboarding = false
+
     init() {
         let lib = PhotoLibraryStore()
         let settings = AISettingsStore()
@@ -39,5 +44,14 @@ struct RootView: View {
         }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
+        .onAppear {
+            if !hasSeenOnboarding { showOnboarding = true }
+        }
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingView(onFinish: {
+                hasSeenOnboarding = true
+                showOnboarding = false
+            })
+        }
     }
 }

@@ -11,17 +11,32 @@ struct SettingsScreen: View {
     @Binding var flash: AVCaptureDevice.FlashMode
     @Bindable var aiSettings: AISettingsStore
     @Environment(\.dismiss) private var dismiss
+    @State private var showHelp = false
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Capture") {
+                Section {
+                    Button {
+                        showHelp = true
+                    } label: {
+                        Label("How it works", systemImage: "questionmark.circle")
+                    }
+                } footer: {
+                    Text("A quick reference for every button and mode, plus the option to replay the welcome tutorial.")
+                }
+
+                Section {
                     Toggle("Auto Correction", isOn: $autoCorrection)
                     Picker("Flash", selection: $flash) {
                         Text("Auto").tag(AVCaptureDevice.FlashMode.auto)
                         Text("On").tag(AVCaptureDevice.FlashMode.on)
                         Text("Off").tag(AVCaptureDevice.FlashMode.off)
                     }
+                } header: {
+                    Text("Capture")
+                } footer: {
+                    Text("Auto Correction quietly improves exposure, white balance and color on saved photos. Original mode always ignores this and saves the raw frame.")
                 }
 
                 Section("AI Expert") {
@@ -53,6 +68,7 @@ struct SettingsScreen: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .sheet(isPresented: $showHelp) { HelpSheet() }
         }
     }
 

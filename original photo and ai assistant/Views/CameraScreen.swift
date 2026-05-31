@@ -12,6 +12,7 @@ struct CameraScreen: View {
     let switchToGallery: () -> Void
     @State private var showModeSheet = false
     @State private var showSettings = false
+    @State private var showHelp = false
 
     var body: some View {
         ZStack {
@@ -59,6 +60,9 @@ struct CameraScreen: View {
             AICoachInsightSheet(service: viewModel.coach,
                                 onClose: { viewModel.showAIInsight = false })
         }
+        .sheet(isPresented: $showHelp) {
+            HelpSheet()
+        }
     }
 
     // MARK: - Pieces
@@ -95,6 +99,9 @@ struct CameraScreen: View {
         HStack {
             modeChip
             Spacer()
+            iconButton(systemName: "questionmark") {
+                showHelp = true
+            }
             iconButton(systemName: "arrow.triangle.2.circlepath.camera") {
                 viewModel.switchCamera()
             }
