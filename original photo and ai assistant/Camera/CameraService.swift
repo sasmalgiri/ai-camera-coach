@@ -32,6 +32,11 @@ nonisolated final class CameraService: NSObject, @unchecked Sendable {
     private(set) var isConfigured = false
     private(set) var isAuthorized = false
 
+    /// Current zoom factor (1.0 = no zoom).
+    private(set) var zoomFactor: CGFloat = 1.0
+
+    // MARK: - Auth & lifecycle
+
     func requestAuthorization() async -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
@@ -59,9 +64,6 @@ nonisolated final class CameraService: NSObject, @unchecked Sendable {
         session.beginConfiguration()
         session.sessionPreset = .photo
 
-        // Prefer the back wide-angle camera (real device). Fall back to
-        // any available video camera so the iOS Simulator (which only
-        // exposes the Mac's webcam, position .unspecified) still works.
         let device: AVCaptureDevice? =
             AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
             ?? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front)
@@ -113,6 +115,8 @@ nonisolated final class CameraService: NSObject, @unchecked Sendable {
         }
     }
 
+    // MARK: - Capture
+
     func capturePhoto(flash: AVCaptureDevice.FlashMode) {
         sessionQueue.async {
             let settings = AVCapturePhotoSettings()
@@ -146,6 +150,53 @@ nonisolated final class CameraService: NSObject, @unchecked Sendable {
             }
             self.session.commitConfiguration()
         }
+    }
+
+    // MARK: - Focus / Exposure
+
+    /// `point` is a Vision-normalised CGPoint in 0..1 (top-left origin).
+    func focusAndExpose(at point: CGPoint) {
+        sessionQueue.async {
+            guard let device = self.input?.device else { return }
+            do {
+                try device.lockForConfiguration()
+                if device.isFocusPointOfInterestSupported {
+                    device.focusPointOfInterest = point
+                    device.focusMode = device.isFocusModeSupported(.autoFocus)
+                        ? .autoFocus : .continuousAutoFocus
+                }
+                if device.isExposurePointOfInterestSupported {
+                    device.exposurePointOfInterest = point
+                    device.exposureMode = device.isExposureModeSupported(.autoExpose)
+                        ? .autoExpose : .continuousAutoExposure
+                }
+                device.unlockForConfiguration()
+            } catch {
+                // Best-effort — silently ignore on failure.
+            }
+        }
+    }
+
+    // MARK: - Zoom
+
+    /// `factor` is clamped to the device's supported zoom range.
+    func setZoom(_ factor: CGFloat) {
+        sessionQueue.async {
+            guard let device = self.input?.device else { return }
+            let clamped = max(1.0, min(factor, device.activeFormat.videoMaxZoomFactor))
+            do {
+                try device.lockForConfiguration()
+                device.videoZoomFactor = clamped
+                device.unlockForConfiguration()
+                self.zoomFactor = clamped
+            } catch {
+                // Ignore.
+            }
+        }
+    }
+
+    func maxZoom() -> CGFloat {
+        input?.device.activeFormat.videoMaxZoomFactor ?? 1.0
     }
 }
 

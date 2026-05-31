@@ -1,17 +1,37 @@
-# AI Camera Coach
+# AI Camera Coach — v2.0
 
 > Take professional-looking photos without learning photography.
 
-AI Camera Coach is an iOS camera app that combines an **AI Coach** (which tells you what to do) with an **AI Photographer** (which decides when to capture for you). Everything runs on-device, with no accounts, no ads, and no tracking.
+AI Camera Coach is an iOS camera app that combines an **AI Coach** (which tells you what to do) with an **AI Photographer** (which decides when to capture for you). Everything runs on-device by default, with no accounts, no ads, and no tracking.
 
 **Price:** $4.99 — one-time purchase.
 
 ---
 
+## What's new in v2.0
+
+- **Mixture-of-Experts hybrid AI** — 7 parallel Apple-trained Vision experts (face, OCR, classification, horizon, saliency, animal, aesthetics) + NaturalLanguage feed into multiple parallel Apple Intelligence sessions (map-reduce synthesis)
+- **Cloud LLM vision coaching** — when you opt in with your own OpenAI or Anthropic key, the model sees the actual frame
+- **Composition overlays** — rule-of-thirds grid + live horizon level indicator via CoreMotion
+- **Tap-to-focus + tap-to-expose** with animated reticle
+- **Pinch-to-zoom** with smooth ramp-up to device max
+- **Self-timer** (3 s / 10 s) with countdown
+- **Proactive coach** — surfaces the top tip automatically when your score drops below 45
+- **Mode auto-detect** — banner suggests switching to Family / Travel when the scene calls for it
+- **Save to Photos library** (opt-in)
+- **Before/After slider** in the gallery — drag to compare original vs enhanced
+- **Multi-select + share + batch delete** in the gallery
+- **Voice tips** (off by default) — speaks the top tip aloud for tripod/selfie shooting
+- **App Intents / Shortcuts** — *"Hey Siri, open AI Camera Coach in Pet mode"*
+- **Thermal throttling** — analysis frequency adapts to device temperature
+- **Haptics** on capture, mode change, AI photographer fires, selection
+- **Privacy promise page** — explicit "what we do / what we don't do"
+
 ## Modes
 
 | Mode | What it optimizes for |
 |---|---|
+| **Original** | Raw camera — no enhancement |
 | **Smart** | General-purpose AI capture |
 | **Family** | Group shots — waits for everyone's eyes open |
 | **Child** | Moving kids and unpredictable expressions |

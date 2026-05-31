@@ -19,7 +19,7 @@ nonisolated struct CloudModelSelection: Sendable, Hashable, Codable {
     var anthropicModel: String = "claude-haiku-4-5"
 }
 
-private let kCoachingSystemPrompt = """
+nonisolated private let kCoachingSystemPrompt = """
 You are a warm, concise photography coach.
 Speak in plain language. Never use technical terms like ISO, EV,
 aperture, shutter speed, histograms, or dynamic range.
@@ -60,6 +60,28 @@ actor OpenAICloudEngine: AIEngine {
     func coachingAdvice(scene: SceneSummary) async throws -> AIResponse {
         let user = "Scene snapshot:\n\(scene.promptDescription)\n\nGive up to three short tips."
         let text = try await chat(systemPrompt: kCoachingSystemPrompt, userPrompt: user)
+        return AIResponse(text: text, provenance: provenance)
+    }
+
+    func coachingAdvice(scene: SceneSummary, imageJPEG: Data) async throws -> AIResponse {
+        // Use the vision capability: the model sees the actual frame +
+        // the structured scene summary. Cap the image at a reasonable
+        // size to control upload cost.
+        let dataURL = "data:image/jpeg;base64,\(imageJPEG.base64EncodedString())"
+        let payload: [String: Any] = [
+            "model": modelProvider(),
+            "messages": [
+                ["role": "system", "content": kCoachingSystemPrompt],
+                ["role": "user", "content": [
+                    ["type": "text",
+                     "text": "Scene snapshot:\n\(scene.promptDescription)\n\nLook at this photo. Give up to three short tips that reference something you can actually see."],
+                    ["type": "image_url", "image_url": ["url": dataURL]]
+                ] as [Any]]
+            ],
+            "max_tokens": 220,
+            "temperature": 0.5
+        ]
+        let text = try await postChatCompletion(payload: payload)
         return AIResponse(text: text, provenance: provenance)
     }
 
@@ -190,6 +212,35 @@ actor AnthropicCloudEngine: AIEngine {
     func coachingAdvice(scene: SceneSummary) async throws -> AIResponse {
         let user = "Scene snapshot:\n\(scene.promptDescription)\n\nGive up to three short tips."
         let text = try await messages(system: kCoachingSystemPrompt, user: user)
+        return AIResponse(text: text, provenance: provenance)
+    }
+
+    func coachingAdvice(scene: SceneSummary, imageJPEG: Data) async throws -> AIResponse {
+        let payload: [String: Any] = [
+            "model": modelProvider(),
+            "max_tokens": 220,
+            "system": kCoachingSystemPrompt,
+            "messages": [
+                [
+                    "role": "user",
+                    "content": [
+                        [
+                            "type": "image",
+                            "source": [
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": imageJPEG.base64EncodedString()
+                            ]
+                        ],
+                        [
+                            "type": "text",
+                            "text": "Scene snapshot:\n\(scene.promptDescription)\n\nLook at this photo. Give up to three short tips that reference something you can actually see."
+                        ]
+                    ] as [Any]
+                ]
+            ]
+        ]
+        let text = try await postMessages(payload: payload)
         return AIResponse(text: text, provenance: provenance)
     }
 

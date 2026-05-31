@@ -3,6 +3,7 @@
 //  AI Camera Coach
 //
 
+import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -10,41 +11,83 @@ struct CameraScreen: View {
     @Bindable var viewModel: CameraViewModel
     @Bindable var aiSettings: AISettingsStore
     let switchToGallery: () -> Void
+
+    @State private var levelService = DeviceLevelService()
     @State private var showModeSheet = false
     @State private var showSettings = false
     @State private var showHelp = false
+    @State private var pinchBaseline: CGFloat = 1.0
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
+        GeometryReader { geo in
+            ZStack {
+                Color.black.ignoresSafeArea()
 
-            if viewModel.isAuthorized {
-                CameraPreviewView(session: viewModel.session)
-                    .ignoresSafeArea()
-            } else {
-                permissionPrompt
-            }
+                if viewModel.isAuthorized {
+                    CameraPreviewView(session: viewModel.session)
+                        .ignoresSafeArea()
+                        .gesture(tapGesture(in: geo))
+                        .simultaneousGesture(pinchGesture)
 
-            VStack {
-                topBar
-                Spacer()
-                if viewModel.showCoach && viewModel.isAuthorized {
-                    CoachPanel(score: viewModel.photoScore.total,
-                               suggestions: viewModel.suggestions)
-                        .padding(.horizontal)
-                        .padding(.bottom, 8)
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    CompositionOverlay(showGrid: viewModel.showGrid,
+                                       showLevel: viewModel.showLevel,
+                                       rollDegrees: levelService.rollDegrees)
+                        .ignoresSafeArea()
+
+                    if let p = viewModel.focusReticleNormalised {
+                        FocusReticle()
+                            .position(x: p.x * geo.size.width,
+                                      y: p.y * geo.size.height)
+                            .transition(.opacity)
+                    }
+                } else {
+                    permissionPrompt
                 }
-                if let feedback = viewModel.captureFeedback {
-                    captureFeedbackBubble(feedback)
-                        .padding(.bottom, 8)
+
+                VStack {
+                    topBar
+                    if let suggested = viewModel.suggestedMode {
+                        modeSuggestionBanner(suggested)
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                    Spacer()
+                    if viewModel.showCoach && viewModel.isAuthorized {
+                        CoachPanel(score: viewModel.photoScore.total,
+                                   suggestions: viewModel.suggestions)
+                            .padding(.horizontal)
+                            .padding(.bottom, 8)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    } else if viewModel.showProactiveTip {
+                        proactiveTipBubble(viewModel.proactiveTipText)
+                            .padding(.horizontal)
+                            .padding(.bottom, 8)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
+                    if let feedback = viewModel.captureFeedback {
+                        captureFeedbackBubble(feedback)
+                            .padding(.bottom, 8)
+                    }
+                    if viewModel.countdownRemaining > 0 {
+                        Text("\(viewModel.countdownRemaining)")
+                            .font(.system(size: 72, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                            .shadow(radius: 8)
+                    }
+                    bottomBar
                 }
-                bottomBar
+                .padding(.vertical, 12)
             }
-            .padding(.vertical, 12)
         }
-        .task { await viewModel.bootstrap() }
-        .onDisappear { viewModel.stop() }
+        .task {
+            await viewModel.bootstrap()
+            levelService.start()
+        }
+        .onDisappear {
+            viewModel.stop()
+            levelService.stop()
+        }
         .onAppear { viewModel.resume() }
         .sheet(isPresented: $showModeSheet) {
             ModePicker(selected: $viewModel.mode)
@@ -53,6 +96,9 @@ struct CameraScreen: View {
         .sheet(isPresented: $showSettings) {
             SettingsScreen(autoCorrection: $viewModel.autoCorrectionEnabled,
                            flash: $viewModel.captureFlash,
+                           showGrid: $viewModel.showGrid,
+                           showLevel: $viewModel.showLevel,
+                           saveToPhotos: $viewModel.saveToPhotos,
                            aiSettings: aiSettings)
                 .presentationDetents([.large])
         }
@@ -65,7 +111,32 @@ struct CameraScreen: View {
         }
     }
 
-    // MARK: - Pieces
+    // MARK: - Gestures
+
+    private func tapGesture(in geo: GeometryProxy) -> some Gesture {
+        SpatialTapGesture()
+            .onEnded { value in
+                let normalised = CGPoint(
+                    x: value.location.x / geo.size.width,
+                    y: value.location.y / geo.size.height
+                )
+                viewModel.focus(atNormalisedScreenPoint: normalised)
+            }
+    }
+
+    private var pinchGesture: some Gesture {
+        MagnificationGesture()
+            .onChanged { value in
+                let next = pinchBaseline * value
+                viewModel.setZoom(next)
+            }
+            .onEnded { _ in
+                pinchBaseline = viewModel.session.inputs.first
+                    .flatMap { ($0 as? AVCaptureDeviceInput)?.device.videoZoomFactor } ?? 1.0
+            }
+    }
+
+    // MARK: - Top bar / bottom bar
 
     private var permissionPrompt: some View {
         VStack(spacing: 16) {
@@ -99,17 +170,32 @@ struct CameraScreen: View {
         HStack {
             modeChip
             Spacer()
-            iconButton(systemName: "questionmark") {
-                showHelp = true
-            }
+            iconButton(systemName: timerSymbol) { viewModel.cycleTimer() }
+                .overlay(alignment: .bottomTrailing) {
+                    if viewModel.timerSeconds > 0 {
+                        Text("\(viewModel.timerSeconds)")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 4)
+                            .background(.yellow, in: Capsule())
+                            .offset(x: 4, y: 4)
+                    }
+                }
+            iconButton(systemName: "questionmark") { showHelp = true }
             iconButton(systemName: "arrow.triangle.2.circlepath.camera") {
                 viewModel.switchCamera()
             }
-            iconButton(systemName: "slider.horizontal.3") {
-                showSettings = true
-            }
+            iconButton(systemName: "slider.horizontal.3") { showSettings = true }
         }
         .padding(.horizontal)
+    }
+
+    private var timerSymbol: String {
+        switch viewModel.timerSeconds {
+        case 3: return "3.circle"
+        case 10: return "10.circle"
+        default: return "timer"
+        }
     }
 
     private var modeChip: some View {
@@ -120,8 +206,7 @@ struct CameraScreen: View {
                 Image(systemName: viewModel.mode.symbolName)
                 Text(viewModel.mode.title)
                     .font(.subheadline.weight(.semibold))
-                Image(systemName: "chevron.down")
-                    .font(.caption)
+                Image(systemName: "chevron.down").font(.caption)
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 14)
@@ -146,13 +231,9 @@ struct CameraScreen: View {
             Group {
                 if let last = viewModel.lastCaptured,
                    let img = viewModel.library.processedImage(for: last) {
-                    Image(uiImage: img)
-                        .resizable()
-                        .scaledToFill()
+                    Image(uiImage: img).resizable().scaledToFill()
                 } else {
-                    Image(systemName: "photo.stack")
-                        .font(.title2)
-                        .foregroundStyle(.white)
+                    Image(systemName: "photo.stack").font(.title2).foregroundStyle(.white)
                 }
             }
             .frame(width: 54, height: 54)
@@ -168,9 +249,7 @@ struct CameraScreen: View {
             viewModel.capture()
         } label: {
             ZStack {
-                Circle()
-                    .stroke(.white, lineWidth: 4)
-                    .frame(width: 84, height: 84)
+                Circle().stroke(.white, lineWidth: 4).frame(width: 84, height: 84)
                 Circle()
                     .fill(viewModel.aiPhotographerEnabled ? Color.green : Color.white)
                     .frame(width: 70, height: 70)
@@ -236,4 +315,60 @@ struct CameraScreen: View {
             .padding(.vertical, 8)
             .background(.black.opacity(0.7), in: Capsule())
     }
+
+    private func proactiveTipBubble(_ text: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "lightbulb.fill").foregroundStyle(.yellow)
+            Text(text)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14)
+            .stroke(.yellow.opacity(0.45), lineWidth: 1))
+    }
+
+    private func modeSuggestionBanner(_ suggested: CaptureMode) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: suggested.symbolName).foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Try \(suggested.title) mode?")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text(suggested.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            Spacer()
+            Button("Use") { viewModel.acceptModeSuggestion() }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            Button {
+                viewModel.dismissModeSuggestion()
+            } label: {
+                Image(systemName: "xmark").font(.caption).foregroundStyle(.white)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
 }
+
+// MARK: - Focus reticle
+
+private struct FocusReticle: View {
+    @State private var scale: CGFloat = 1.3
+    var body: some View {
+        RoundedRectangle(cornerRadius: 6)
+            .stroke(.yellow, lineWidth: 1.5)
+            .frame(width: 72, height: 72)
+            .scaleEffect(scale)
+            .animation(.spring(response: 0.25, dampingFraction: 0.5), value: scale)
+            .onAppear { scale = 1.0 }
+    }
+}
+
