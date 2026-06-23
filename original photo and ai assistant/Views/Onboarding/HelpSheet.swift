@@ -32,6 +32,9 @@ struct HelpSheet: View {
                     HelpRow(symbol: "photo.stack",
                             title: "Gallery",
                             text: "Open saved photos. Long-press a photo in detail view to compare with the original.")
+                    HelpRow(symbol: "arrow.up.left.and.arrow.down.right",
+                            title: "Guide Me (minimum-word mode)",
+                            text: "Replaces written tips with arrows and corner icons around the edges. Arrows pulse where you should adjust; corner icons cover light, eyes, level, and ready. Center stays clear so you can see the scene.")
                 }
 
                 Section {

@@ -17,6 +17,8 @@ struct CameraScreen: View {
     @State private var showModeSheet = false
     @State private var showSettings = false
     @State private var showHelp = false
+    @State private var showGuideConsent = false
+    @AppStorage("camera.guideMeConsented") private var guideMeConsented = false
     @State private var pinchBaseline: CGFloat = 1.0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -35,6 +37,12 @@ struct CameraScreen: View {
                                        showLevel: viewModel.showLevel,
                                        rollDegrees: levelService.rollDegrees)
                         .ignoresSafeArea()
+
+                    if viewModel.guideMeEnabled {
+                        GuideMeOverlay(state: viewModel.guideMeState)
+                            .ignoresSafeArea()
+                            .transition(.opacity)
+                    }
 
                     if let p = viewModel.focusReticleNormalised {
                         FocusReticle()
@@ -56,14 +64,14 @@ struct CameraScreen: View {
                                         : .move(edge: .top).combined(with: .opacity))
                     }
                     Spacer()
-                    if viewModel.showCoach && viewModel.isAuthorized {
+                    if viewModel.showCoach && viewModel.isAuthorized && !viewModel.guideMeEnabled {
                         CoachPanel(score: viewModel.photoScore.total,
                                    suggestions: viewModel.suggestions)
                             .padding(.horizontal)
                             .padding(.bottom, 8)
                             .transition(reduceMotion ? .opacity
                                         : .opacity.combined(with: .move(edge: .bottom)))
-                    } else if viewModel.showProactiveTip {
+                    } else if viewModel.showProactiveTip && !viewModel.guideMeEnabled {
                         proactiveTipBubble(viewModel.proactiveTipText)
                             .padding(.horizontal)
                             .padding(.bottom, 8)
@@ -102,6 +110,9 @@ struct CameraScreen: View {
             levelService.start()
             volumeShutter.start { viewModel.capture() }
         }
+        .onChange(of: levelService.rollDegrees) { _, newValue in
+            viewModel.currentRollDegrees = newValue
+        }
         .onDisappear {
             viewModel.stop()
             levelService.stop()
@@ -127,6 +138,15 @@ struct CameraScreen: View {
         }
         .sheet(isPresented: $showHelp) {
             HelpSheet()
+        }
+        .alert("Turn on Guide Me?", isPresented: $showGuideConsent) {
+            Button("Cancel", role: .cancel) { }
+            Button("Turn on") {
+                guideMeConsented = true
+                viewModel.guideMeEnabled = true
+            }
+        } message: {
+            Text("Guide Me replaces written tips with simple arrows and icons around the edges of the camera. Arrows point where to move, corner icons show light, eyes, level, and ready. Touch the camera center any time.")
         }
     }
 
@@ -189,6 +209,7 @@ struct CameraScreen: View {
         HStack {
             modeChip
             Spacer()
+            guideMeButton
             iconButton(systemName: timerSymbol) { viewModel.cycleTimer() }
                 .overlay(alignment: .bottomTrailing) {
                     if viewModel.timerSeconds > 0 {
@@ -207,6 +228,25 @@ struct CameraScreen: View {
             iconButton(systemName: "slider.horizontal.3") { showSettings = true }
         }
         .padding(.horizontal)
+    }
+
+    private var guideMeButton: some View {
+        Button {
+            if viewModel.guideMeEnabled {
+                viewModel.guideMeEnabled = false
+            } else if guideMeConsented {
+                viewModel.guideMeEnabled = true
+            } else {
+                showGuideConsent = true
+            }
+        } label: {
+            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                .font(.headline)
+                .foregroundStyle(viewModel.guideMeEnabled ? .yellow : .white)
+                .frame(width: 40, height: 40)
+                .background(.ultraThinMaterial, in: Circle())
+        }
+        .accessibilityLabel(viewModel.guideMeEnabled ? "Turn off Guide Me" : "Turn on Guide Me")
     }
 
     private var timerSymbol: String {

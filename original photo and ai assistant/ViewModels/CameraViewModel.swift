@@ -75,6 +75,23 @@ final class CameraViewModel: CameraServiceDelegate {
     /// Expert sheet when the auto-photographer is on).
     var photographerReason: String { photographer.lastDecisionReason }
 
+    /// Guide Me mode — minimum-word, glyph-only edge guidance for users
+    /// who don't read English fluently or want a calmer UI.
+    var guideMeEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(guideMeEnabled, forKey: "camera.guideMe")
+            if guideMeEnabled {
+                Haptics.selection()
+                // Mutually exclusive with the text Coach panel and
+                // proactive bubbles — keeps the centre uncluttered.
+                showCoach = false
+                showProactiveTip = false
+            }
+        }
+    }
+    /// Live state passed to the GuideMeOverlay each frame.
+    var guideMeState = GuideMeState()
+
     // MARK: - References
 
     @ObservationIgnored let session: AVCaptureSession
@@ -105,6 +122,9 @@ final class CameraViewModel: CameraServiceDelegate {
     @ObservationIgnored private var modeSuggestionDismissedAt: Date?
     @ObservationIgnored private let modeSuggestionCooldown: TimeInterval = 20
 
+    /// Updated by the screen from CoreMotion; consumed by the Guide Me overlay.
+    var currentRollDegrees: Double = 0
+
     init(library: PhotoLibraryStore, coach: AICoachService) {
         self.library = library
         self.coach = coach
@@ -112,6 +132,7 @@ final class CameraViewModel: CameraServiceDelegate {
         self.showGrid = UserDefaults.standard.bool(forKey: "camera.showGrid")
         self.showLevel = UserDefaults.standard.bool(forKey: "camera.showLevel")
         self.saveToPhotos = UserDefaults.standard.bool(forKey: "camera.saveToPhotos")
+        self.guideMeEnabled = UserDefaults.standard.bool(forKey: "camera.guideMe")
         self.cameraService.delegate = self
 
         // Adapt to thermal pressure on the device.
@@ -297,6 +318,12 @@ final class CameraViewModel: CameraServiceDelegate {
 
         updateProactiveTip(score: nextScore.total, tip: nextTips.first)
         updateModeSuggestion(from: result)
+        if guideMeEnabled {
+            guideMeState = GuideMeState.make(from: result,
+                                             score: nextScore,
+                                             rollDegrees: currentRollDegrees,
+                                             mode: mode)
+        }
 
         if now.timeIntervalSince(lastSnapshotAt) >= snapshotInterval {
             lastSnapshotAt = now
